@@ -4,7 +4,7 @@ Osprey is a little java tool.
 
 Osprey makes a way that you want execute something ultimately by persistent staffs in to file.
 
-[Dowload] (https://github.com/downloads/echozhjun/osprey/osprey-1.0.0.jar "download")
+[Dowload] (https://github.com/downloads/echozhjun/osprey/osprey-1.0.0.jar, "download")
 
 # QuikStart
 
