@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.util.Iterator;
@@ -9,12 +17,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.log4j.Logger;
 
 import com.juhuasuan.osprey.OspreyProcessor.OspreyPreProcessor;
-import com.taobao.common.store.util.BytesKey;
-import com.taobao.common.store.util.UniqId;
+import com.juhuasuan.osprey.store.BytesKey;
+import com.juhuasuan.osprey.store.UniqId;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-15 下午5:13:37
+ * @since 2012-3-15
  * @version 1.0
  */
 public class OspreyMessageTask implements Runnable {
@@ -22,7 +30,6 @@ public class OspreyMessageTask implements Runnable {
 
     private final OspreyManager ospreyManager;
     private final ThreadPoolExecutor asynSendMessageWorkTP;
-    // 超过这个数量则抛弃消息
     private final int threshold;
 
     private volatile int corePoolSize;
@@ -33,9 +40,6 @@ public class OspreyMessageTask implements Runnable {
 
     private volatile boolean run = true;
 
-    /**
-     * 当前是否处于暂停可靠异步任务状态
-     */
     private volatile boolean suspend = false;
 
     private volatile int lostWaitWeight = 1;
@@ -62,14 +66,12 @@ public class OspreyMessageTask implements Runnable {
         if (count > maxPoolSize) {
             count = maxPoolSize;
         }
-        // 这里需要注意：一旦上次发送失败的大于发送消息数量的一半时，
-        // 我们认为发送消息不可用。在这种情况下，睡眠1分钟，再尝试发送
         if (lostCount.get() > count / 2) {
-            logger.error("在可靠异步发送中，上个周期异步发送消息发送不出去，休眠" + (10 * lostWaitWeight) + "秒，然后再次尝试可靠异步发送消息，未发送的消息存储在本地硬盘，请客户放心，消息是安全的");
+            logger.error("More than half of messages transfer error. Wait for " + (10 * lostWaitWeight) + " and then we will try again. Don't warry, your message is safe!");
             sleep(10000 * lostWaitWeight);
             lostWaitWeight++;
             if (lostWaitWeight > 30) {
-                lostWaitWeight = 30;// 最长等待5分钟
+                lostWaitWeight = 30;
             }
             lostCount.set(0L);
         } else {
@@ -87,16 +89,15 @@ public class OspreyMessageTask implements Runnable {
     }
 
     public void run() {
-        logger.info("进入可靠异步发送消息流程");
-        Thread.currentThread().setName("ReliableAsynTraverseMessageTask");
+        logger.info("Osprey message task start...");
+        Thread.currentThread().setName("OspreyMessageTask");
         boolean isFirst = true;
         while (run) {
             boolean bSend = false;
 
-            // 用户设置了暂停可靠异步发送
             if (suspend) {
                 if (isFirst) {
-                    logger.warn(">>>>>可靠异步发送消息流程被用户暂停");
+                    logger.warn(">>>> Suspend for the first time.");
                     isFirst = false;
                 }
                 sleep(5000);
@@ -121,21 +122,21 @@ public class OspreyMessageTask implements Runnable {
                         continue;
                     }
 
-                    MessageInStore4j messageInStore4j = ospreyManager.getMessageInStore4j(messageId);
-                    if (null == messageInStore4j) {
+                    MessageInStore messageInStore = ospreyManager.getMessageInStore4j(messageId);
+                    if (null == messageInStore) {
                         ospreyManager.removeMessage(messageId);
                         ProcessRegister.getInstance().unregister(messageIdKey);
                         bSend = true;
                         break;
                     }
 
-                    if (messageInStore4j.isEnabledSend()) {
-                        Message sendMessage = messageInStore4j.getMessage();
+                    if (messageInStore.isEnabledSend()) {
+                        Message sendMessage = messageInStore.getMessage();
                         if (sendMessage != null) {
                             try {
                                 asynSendMessageWorkTP.execute(new ReliableAsynSendMessageTask(ospreyManager, sendMessage, messageIdKey, this));
                             } catch (Exception e) {
-                                logger.warn("消息投递过快", e);
+                                logger.warn("Execute message error.", e);
                                 ProcessRegister.getInstance().unregister(messageIdKey);
                                 sleep(1000);
                             } finally {
@@ -145,8 +146,8 @@ public class OspreyMessageTask implements Runnable {
                         }
                     } else {
                         try {
-                            if (System.currentTimeMillis() - messageInStore4j.getCreateTime() > 10000) {
-                                Message sendMessage = messageInStore4j.getMessage();
+                            if (System.currentTimeMillis() - messageInStore.getCreateTime() > 10000) {
+                                Message sendMessage = messageInStore.getMessage();
                                 final MessageStatus status = new MessageStatus();
                                 new CheckListener() {
                                     public void receiveCheckMessage(Message message, MessageStatus status) {
@@ -155,7 +156,7 @@ public class OspreyMessageTask implements Runnable {
                                 }.receiveCheckMessage(sendMessage, status);
                                 try {
                                     if (status.isRollbackOnly()) {
-                                        logger.warn("事务消息的事务没有完成，删除该Message MsgId:[" + messageId + "]");
+                                        logger.warn("Message MsgId:[" + messageId + "]");
                                         ospreyManager.removeMessage(messageId);
                                     } else {
                                         ospreyManager.commitMessage(sendMessage, new Result());
@@ -170,14 +171,14 @@ public class OspreyMessageTask implements Runnable {
                     }
                 }
             } catch (Throwable t) {
-                logger.error("遍历Store4j出错", t);
+                logger.error("Store error.", t);
             }
 
             if (!bSend && run) {
                 sleep(1000);
             }
         }
-        logger.error("可靠异步结束时，Store4j中消息的数量：" + ospreyManager.storeSize());
+        logger.error("Osprey task shutdown, message size : " + ospreyManager.storeSize());
         asynSendMessageWorkTP.shutdown();
     }
 
@@ -185,7 +186,7 @@ public class OspreyMessageTask implements Runnable {
         try {
             Thread.sleep(sleepTime);
         } catch (InterruptedException e) {
-            logger.error("Thread.sleep()出错", e);
+            logger.error("Thread.sleep() interupted.", e);
             Thread.currentThread().interrupt();
         }
     }
@@ -268,16 +269,16 @@ public class OspreyMessageTask implements Runnable {
                     message.incrementLostCount();
 
                     if (message.getLostCount() > threshold) {
-                        logger.warn("超过设定的错误阈值，抛弃该Message MsgId:[" + messageId + "]");
+                        logger.warn("Exceed max error threshold, remove it. Message MsgId:[" + messageId + "]");
                         ospreyManager.removeMessage(messageId);
                     }
 
                     ospreyMessageTask.addLostCount();
-                    logger.error("可靠异步的[同步发送消息]阶段错误，MessageID：" + UniqId.getInstance().bytes2string(messageId) + "，错误原因：" + sendResult.getErrorMessage() + "，异常：" + sendResult.getRuntimeException());
+                    logger.error("Process message faild. MessageID = " + UniqId.getInstance().bytes2string(messageId) + " Error message:" + sendResult.getErrorMessage() + " Exception : " + sendResult.getRuntimeException());
                 }
             } catch (Throwable t) {
                 ospreyMessageTask.addLostCount();
-                logger.error("可靠异步的[同步发送消息]阶段错误: ", t);
+                logger.error("Process message error: ", t);
             } finally {
                 ProcessRegister.getInstance().unregister(messageIdKey);
             }

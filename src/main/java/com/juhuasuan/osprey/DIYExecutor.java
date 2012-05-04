@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.util.concurrent.Executor;
@@ -6,7 +14,7 @@ import org.apache.commons.logging.Log;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-16 下午2:29:32
+ * @since 2012-3-16
  * @version 1.0
  */
 public class DIYExecutor implements Executor {
@@ -23,7 +31,7 @@ public class DIYExecutor implements Executor {
         if (null != task) {
             task.run();
         } else {
-            LOGGER.warn("线程[" + Thread.currentThread().getName() + "]在调用DIYExecutor时，执行的任务为NULL.");
+            LOGGER.warn(Thread.currentThread().getName() + " DIYExecutor task is null.");
         }
     }
 

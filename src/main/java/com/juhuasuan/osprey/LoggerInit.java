@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.io.File;
@@ -15,7 +23,7 @@ import org.apache.log4j.xml.DOMConfigurator;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-16 下午2:35:57
+ * @since 2012-3-16
  * @version 1.0
  */
 public class LoggerInit {
@@ -25,11 +33,10 @@ public class LoggerInit {
     static public final Log LOGGER;
 
     static {
-        // 告诉commons-logging具体log实现
         LogFactory.getFactory().setAttribute(LogFactoryImpl.LOG_PROPERTY, Log4JLogger.class.getName());
         LOGGER = LogFactory.getLog(LOGGER_NAME);
 
-        try { // 不能因为该类初始化失败导致其引用类初始化失败
+        try {
             init();
         } catch (Exception e) {
             e.printStackTrace();
@@ -44,27 +51,22 @@ public class LoggerInit {
             DOMConfigurator.configure(LoggerInit.class.getClassLoader().getResource("osprey-log4j.xml"));
             Logger log4jLogger = Logger.getLogger(LOGGER_NAME);
 
-            /*
-             * 找到上层应用在Root Logger上设置的FileAppender，以及通信层配置的FileAppender。
-             * 目的是为了让通信层的日志与上层应用的日志输出到同一个目录。
-             */
             FileAppender bizFileAppender = getFileAppender(Logger.getRootLogger());
             if (null == bizFileAppender) {
-                LOGGER.warn("上层业务层没有在ROOT LOGGER上设置FileAppender!!!");
+                LOGGER.warn("ROOT LOGGER dosn't contain any FileAppender!!!");
                 return;
             }
             FileAppender fileAppender = getFileAppender(log4jLogger);
 
-            // 并创建异步Appender来替代FileAppender。
             String bizLogDir = new File(bizFileAppender.getFile()).getParent();
             String logFile = new File(bizLogDir, "osprey.log").getAbsolutePath();
             fileAppender.setFile(logFile);
-            fileAppender.activateOptions(); // 很重要，否则原有日志内容会被清空
+            fileAppender.activateOptions();
             AsyncAppender asynAppender = new AsyncAppender();
             asynAppender.addAppender(fileAppender);
             log4jLogger.addAppender(asynAppender);
             log4jLogger.removeAppender(fileAppender);
-            LOGGER.warn("成功为OSPREY LOGGER添加Appender. 输出路径:" + logFile);
+            LOGGER.warn("OSPREY LOGGER added Appender. Append file:" + logFile);
         } finally {
             Thread.currentThread().setContextClassLoader(oldTCL);
         }

@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.util.Map;
@@ -5,11 +13,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 
-import com.taobao.common.store.util.BytesKey;
+import com.juhuasuan.osprey.store.BytesKey;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-16 上午10:20:26
+ * @since 2012-3-16
  * @version 1.0
  */
 public final class ProcessRegister {
@@ -66,13 +74,12 @@ public final class ProcessRegister {
     public final int evict(long currentTimeMillis) {
         int count = 0;
         for (Map.Entry<BytesKey, Long> entry : this.map.entrySet()) {
-            // 超过12个小时未移除，将被强制移除，防止内存泄露
             if (currentTimeMillis - entry.getValue() > processRegisterTimeout) {
                 count++;
                 unregister(entry.getKey());
             }
         }
-        log.info("ProcessRegister移除超时处理的消息" + count + "个");
+        log.info("ProcessRegister evicted processor count : " + count);
         return count;
     }
 

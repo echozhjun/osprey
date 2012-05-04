@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.util.Map;
@@ -6,10 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.logging.Log;
 
 /**
- * 处理器帮助类
- * 
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-2-7 上午11:40:48
+ * @since 2012-2-7
  * @version 1.0
  */
 final public class ProcessorUtil {
@@ -33,7 +39,7 @@ final public class ProcessorUtil {
 
     public void registerProcessor(OspreyProcessor<?> processor) {
         if (null != processors.putIfAbsent(processor.interest(), processor)) {
-            LOGGER.warn("不能重复注册Processor[" + processor.interest() + ", " + processor + "].", new Exception());
+            LOGGER.warn("Register Processor[" + processor.interest() + ", " + processor + "].", new Exception());
         }
     }
 

@@ -8,8 +8,38 @@
 	</parent>
 	<groupId>com.juhuasuan</groupId>
 	<artifactId>osprey</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<name>osprey</name>
+	<packaging>jar</packaging>
+	<description>Another redis java client.</description>
+	<url>https://github.com/echozhjun/osprey</url>
+	<licenses>
+		<license>
+			<name>The Apache Software License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+	<scm>
+		<connection>scm:git:https://github.com/echozhjun/osprey</connection>
+		<developerConnection>scm:git:git@github.com:echozhjun/osprey.git</developerConnection>
+		<url>https://github.com/echozhjun/osprey</url>
+	</scm>
+	<developers>
+		<developer>
+			<id>juxin.zj</id>
+			<name>Juxin</name>
+			<email>juxin.zj@taobao.com</email>
+			<roles>
+				<role>architect</role>
+				<role>developer</role>
+			</roles>
+			<properties>
+				<picUrl>http://en.gravatar.com/userimage/26472691/dc2e0ff649e8e19cbd3800659a58bf85.jpg?size=200</picUrl>
+			</properties>
+			<timezone>-6</timezone>
+		</developer>
+	</developers>
 	<dependencies>
 		<dependency>
 			<groupId>hessian</groupId>

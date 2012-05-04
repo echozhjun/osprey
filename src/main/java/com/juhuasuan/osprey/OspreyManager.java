@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.io.File;
@@ -11,13 +19,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Logger;
 
 import com.juhuasuan.osprey.cache.LRUSoftMessageCache;
-import com.taobao.common.store.Store;
-import com.taobao.common.store.journal.JournalStore;
-import com.taobao.common.store.util.UniqId;
+import com.juhuasuan.osprey.store.JournalStore;
+import com.juhuasuan.osprey.store.Store;
+import com.juhuasuan.osprey.store.UniqId;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-15 下午4:05:40
+ * @since 2012-3-15
  * @version 1.0
  */
 public class OspreyManager {
@@ -32,14 +40,11 @@ public class OspreyManager {
     private boolean isForceToDisk;
     private int threhold;
 
-    // 已经发送的commit消息总数量
     private AtomicInteger messageTotalCount = new AtomicInteger(0);
 
-    // store4j中剩余commit消息
     private AtomicInteger remainCommitMessageCount = new AtomicInteger(0);
 
-    private long ospreyKeepAliveTime = 60L; // 60 second。
-    // 在设置单位时，为TimeUnit.SECONDS
+    private long ospreyKeepAliveTime = 60L;
     private int ospreyCorePoolSize = 10;
     private int ospreyMaxPoolSize = 20;
     private int ospreyMaxQueueSize = 10000;
@@ -49,7 +54,6 @@ public class OspreyManager {
 
     private volatile boolean isInit = false;
 
-    // 用户在初始化之前调用了停止可靠异步发送消息
     private volatile boolean isSuspendBeforeInit = false;
 
     private final HessianSerializer serializer = new HessianSerializer();
@@ -86,13 +90,12 @@ public class OspreyManager {
                 dir.mkdirs();
             }
         } catch (Exception e) {
-            logger.error("创建可靠异步目录不成功");
-            throw new RuntimeException("创建可靠异步目录不成功");
+            throw new RuntimeException("Init error.", e);
         }
         try {
             store = new JournalStore(localMessagePath, "osprey_" + storeName, isForceToDisk, true, true);
         } catch (IOException e) {
-            logger.error("初始化Store4j错误，路径为：" + localMessagePath, e);
+            logger.error("Init JournalStore error. Path : " + localMessagePath, e);
             return isInit;
         }
         ospreyMessageTask = new OspreyMessageTask(this, ospreyCorePoolSize, ospreyMaxPoolSize, ospreyKeepAliveTime, ospreyMaxQueueSize, threhold);
@@ -114,16 +117,14 @@ public class OspreyManager {
             messageId = this.getIterator();
 
             while (messageId.hasNext()) {
-                MessageInStore4j msg = this.getMessageInStore4j(messageId.next());
+                MessageInStore msg = this.getMessageInStore4j(messageId.next());
                 if (null != msg && msg.isEnabledSend()) {
                     initCount++;
                 }
             }
         } catch (IOException e) {
-
-            logger.error("初始化消息计数器失败! 本次数据只记录自启动以来的消息条数!", e);
+            logger.error("", e);
         } finally {
-            // 初始化本地消息计数器
             this.remainCommitMessageCount.set(initCount);
             this.messageTotalCount.set(initCount);
         }
@@ -149,7 +150,7 @@ public class OspreyManager {
                 store.close();
             }
         } catch (IOException e) {
-            logger.error("关闭Store4j文件失败", e);
+            logger.error("Store close error.", e);
         }
         store = null;
     }
@@ -162,21 +163,20 @@ public class OspreyManager {
             sendResult.setSendResultType(ResultType.SUCCESS);
             if (store.size() >= maxStoreSize) {
                 sendResult.setSuccess(false);
-                sendResult.setErrorMessage("Store4j中存储的消息量超过阀值");
-                RuntimeException re = new RuntimeException("Store4j中存储的消息量超过阀值");
+                sendResult.setErrorMessage("Exceed max store size.");
+                RuntimeException re = new RuntimeException("Exceed max store size.");
                 sendResult.setRuntimeException(re);
                 sendResult.setSendResultType(ResultType.ERROR);
-                logger.error("Store4j中存储的消息量超过阀值");
+                logger.error("Exceed max store size.");
                 return sendResult;
             }
             try {
-                MessageInStore4j messageInStore4j = new MessageInStore4j(message, committed);
+                MessageInStore messageInStore4j = new MessageInStore(message, committed);
                 store.add(message.getMessageId(), serializer.serialize(messageInStore4j));
                 if (null != cache) {
                     cache.put(message.getMessageId(), messageInStore4j);
                 }
 
-                // 添加消息是commit消息则计数器增加
                 if (committed) {
                     messageTotalCount.incrementAndGet();
                     remainCommitMessageCount.incrementAndGet();
@@ -185,19 +185,19 @@ public class OspreyManager {
             } catch (IOException e) {
                 sendResult.setSuccess(false);
                 sendResult.setSendResultType(ResultType.EXCEPTION);
-                sendResult.setErrorMessage("添加Message到Store4j错误");
-                RuntimeException re = new RuntimeException("消息存储在本地失败", e);
+                sendResult.setErrorMessage("Add message error.");
+                RuntimeException re = new RuntimeException("Add message error.", e);
                 sendResult.setRuntimeException(re);
-                logger.error("添加Message到Store4j错误，MessageID：" + sendResult.getMessageId(), e);
+                logger.error("Add message error.MessageID = " + sendResult.getMessageId(), e);
             }
             return sendResult;
         } else {
             sendResult.setSuccess(false);
-            sendResult.setErrorMessage("添加Message到Store4j错误，Store4j初始化错误");
-            RuntimeException re = new RuntimeException("Store4j初始化错误");
+            sendResult.setErrorMessage("Add message error cause init store error.");
+            RuntimeException re = new RuntimeException("Store init error.");
             sendResult.setRuntimeException(re);
             sendResult.setSendResultType(ResultType.ERROR);
-            logger.error("添加Message到Store4j错误，Store4j初始化错误");
+            logger.error("Init store error.");
             return sendResult;
         }
     }
@@ -205,43 +205,41 @@ public class OspreyManager {
     public Result commitMessage(Message message, Result sendResult) {
         if (init()) {
             try {
-                MessageInStore4j messageInStore4j = null;
+                MessageInStore messageInStore4j = null;
                 if (null != cache) {
                     messageInStore4j = cache.get(message.getMessageId());
                 }
                 if (null != messageInStore4j) {
                     messageInStore4j.setEnabledSend(true);
                 } else {
-                    messageInStore4j = new MessageInStore4j(message, true);
+                    messageInStore4j = new MessageInStore(message, true);
                     if (null != cache) {
                         cache.put(message.getMessageId(), messageInStore4j);
                     }
                 }
                 store.update(message.getMessageId(), serializer.serialize(messageInStore4j));
 
-                // commit成功计数器增加
                 messageTotalCount.incrementAndGet();
                 remainCommitMessageCount.incrementAndGet();
             } catch (IOException e) {
                 sendResult.setSuccess(false);
-                sendResult.setErrorMessage("更新Message到Store4j错误");
-                RuntimeException re = new RuntimeException("更新在本地的Message失败", e);
+                sendResult.setErrorMessage("Commit message error.");
+                RuntimeException re = new RuntimeException("Commit message error.", e);
                 sendResult.setRuntimeException(re);
-                logger.error("更新Message到Store4j错误，MessageID：" + sendResult.getMessageId(), e);
+                logger.error("Commit message error. MessageID = " + sendResult.getMessageId(), e);
             }
             return sendResult;
         } else {
             sendResult.setSuccess(false);
-            sendResult.setErrorMessage("更新Message到Store4j错误，Store4j初始化错误");
-            RuntimeException re = new RuntimeException("Store4j初始化错误");
+            sendResult.setErrorMessage("Commit message error cause store init error.");
+            RuntimeException re = new RuntimeException("Store4j init error.");
             sendResult.setRuntimeException(re);
-            logger.error("更新Message到Store4j错误，Store4j初始化错误");
+            logger.error("Commit message error cause store init error.");
             return sendResult;
         }
     }
 
     public Result rollbackMessage(Message message, Result sendResult) {
-
         if (init()) {
             try {
                 store.remove(message.getMessageId());
@@ -250,49 +248,43 @@ public class OspreyManager {
                 }
             } catch (IOException e) {
                 sendResult.setSuccess(false);
-                sendResult.setErrorMessage("回滚消息时，删除Store4j中的Message错误");
-                RuntimeException re = new RuntimeException("回滚消息时，删除存储在本地的Message失败", e);
+                sendResult.setErrorMessage("Rollback message error.");
+                RuntimeException re = new RuntimeException("Rollback message error", e);
                 sendResult.setRuntimeException(re);
-                logger.error("回滚消息时，删除Store4j中的Message错误，MessageID：" + sendResult.getMessageId(), e);
+                logger.error("Rollback message error, MessageID : " + sendResult.getMessageId(), e);
             }
             return sendResult;
         } else {
             sendResult.setSuccess(false);
-            sendResult.setErrorMessage("回滚Store4j中消息错误，Store4j初始化错误");
-            RuntimeException re = new RuntimeException("Store4j初始化错误");
+            sendResult.setErrorMessage("Store init failed.");
+            RuntimeException re = new RuntimeException("Store init failed.");
             sendResult.setRuntimeException(re);
-            logger.error("回滚Store4j中消息错误，Store4j初始化错误");
+            logger.error("Store init failed.");
             return sendResult;
         }
     }
 
-    /**
-     * 可靠异步发送成功才去调用该方法删除消息
-     * 
-     * @param msgId
-     */
     public void removeMessage(byte[] msgId) {
         if (init()) {
             try {
                 if (!store.remove(msgId)) {
-                    logger.error("无法删除数据：" + msgId);
+                    logger.error("Message does not exist, messageID : " + msgId);
                 }
                 if (null != cache) {
                     cache.remove(msgId);
                 }
 
-                // 可靠异步发送到NS成功,计数器递减
                 this.remainCommitMessageCount.decrementAndGet();
             } catch (IOException e) {
-                logger.error("删除消息时，删除Store4j中的Message错误，MessageID：" + UniqId.getInstance().bytes2string(msgId), e);
+                logger.error("Remove message from store error. MessageID : " + UniqId.getInstance().bytes2string(msgId), e);
             }
         }
     }
 
-    public MessageInStore4j getMessageInStore4j(byte[] msgId) {
+    public MessageInStore getMessageInStore4j(byte[] msgId) {
         if (init()) {
 
-            MessageInStore4j messageInStore4j = null;
+            MessageInStore messageInStore4j = null;
             if (null != cache) {
                 messageInStore4j = cache.get(msgId);
             }
@@ -303,23 +295,23 @@ public class OspreyManager {
 
                 byte[] objectBytes = store.get(msgId);
                 if (null == objectBytes) {
-                    logger.warn("获取一个空的messageId: " + UniqId.getInstance().bytes2string(msgId));
+                    logger.warn("Message does not exist. messageId: " + UniqId.getInstance().bytes2string(msgId));
                     return null;
                 }
                 try {
                     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
                     try {
                         Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-                        messageInStore4j = (MessageInStore4j) serializer.deserialize(objectBytes);
+                        messageInStore4j = (MessageInStore) serializer.deserialize(objectBytes);
                     } finally {
                         Thread.currentThread().setContextClassLoader(contextClassLoader);
                     }
                 } catch (Exception e) {
-                    logger.warn("反序列化MessageInStore4j有误  MsgId:[" + msgId + "]", e);
+                    logger.warn("Message does not exist. MsgId:[" + msgId + "]", e);
                     return null;
                 }
                 if (null == messageInStore4j) {
-                    logger.warn("反序列化MessageInStore4j有误，null == messageInStore4j  MsgId:[" + msgId + "]");
+                    logger.warn("Get message error cause null == messageInStore4j  MsgId:[" + msgId + "]");
                     return null;
                 }
                 if (null != cache) {
@@ -327,7 +319,7 @@ public class OspreyManager {
                 }
                 return messageInStore4j;
             } catch (Throwable t) {
-                logger.error("获取Store4j中消息错误", t);
+                logger.error("Get message error.", t);
                 return null;
             }
         } else {

@@ -1,12 +1,20 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey;
 
 import java.io.Serializable;
 
-import com.taobao.common.store.util.UniqId;
+import com.juhuasuan.osprey.store.UniqId;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-16 обнГ4:26:02
+ * @since 2012-3-16
  * @version 1.0
  */
 public abstract class Message implements Serializable {

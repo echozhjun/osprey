@@ -1,3 +1,11 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey.cache;
 
 import java.io.Serializable;
@@ -9,7 +17,7 @@ import java.util.Map;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-15 下午4:44:04
+ * @since 2012-3-15
  * @version 1.0
  */
 public class LRUSoftHashMap<K, V> extends LinkedHashMap<K, V> implements LocalCache<K, V> {
@@ -34,7 +42,6 @@ public class LRUSoftHashMap<K, V> extends LinkedHashMap<K, V> implements LocalCa
     protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
         boolean result = this.hardSize() > getLowWaterMark();
         if (result) {
-            // 没有超过highWaterMark的转变为软引用
             if (this.hardSize() + softMap.size() <= this.highWaterMark) {
                 softMap.put(eldest.getKey(), eldest.getValue());
             }
@@ -175,7 +182,7 @@ public class LRUSoftHashMap<K, V> extends LinkedHashMap<K, V> implements LocalCa
                 K staleKey = softValue.key;
                 map.remove(staleKey);
                 softValue.clear();
-                softValue = null; // help gc
+                softValue = null;
             }
         }
 

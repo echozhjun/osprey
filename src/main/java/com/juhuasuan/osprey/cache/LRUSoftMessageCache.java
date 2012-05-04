@@ -1,18 +1,26 @@
+/**
+ * (C) 2011-2012 Alibaba Group Holding Limited.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ */
 package com.juhuasuan.osprey.cache;
 
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.juhuasuan.osprey.MessageInStore4j;
-import com.taobao.common.store.util.BytesKey;
+import com.juhuasuan.osprey.MessageInStore;
+import com.juhuasuan.osprey.store.BytesKey;
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
- * @since 2012-3-15 ÏÂÎç4:48:09
+ * @since 2012-3-15
  * @version 1.0
  */
 public class LRUSoftMessageCache {
-    private final LRUSoftHashMap<BytesKey, MessageInStore4j> map;
+    private final LRUSoftHashMap<BytesKey, MessageInStore> map;
 
     private final Lock lock = new ReentrantLock();
 
@@ -27,7 +35,7 @@ public class LRUSoftMessageCache {
             throw new IllegalArgumentException("highWaterMark<lowWaterMark");
         }
 
-        this.map = new LRUSoftHashMap<BytesKey, MessageInStore4j>(lowWaterMark, highWaterMark);
+        this.map = new LRUSoftHashMap<BytesKey, MessageInStore>(lowWaterMark, highWaterMark);
 
     }
 
@@ -67,7 +75,7 @@ public class LRUSoftMessageCache {
         }
     }
 
-    public MessageInStore4j put(byte[] msgId, MessageInStore4j messageInStore4j) {
+    public MessageInStore put(byte[] msgId, MessageInStore messageInStore4j) {
         lock.lock();
         try {
             return map.put(new BytesKey(msgId), messageInStore4j);
@@ -76,7 +84,7 @@ public class LRUSoftMessageCache {
         }
     }
 
-    public MessageInStore4j remove(byte[] msgId) {
+    public MessageInStore remove(byte[] msgId) {
         lock.lock();
         try {
             return map.remove(new BytesKey(msgId));
@@ -85,7 +93,7 @@ public class LRUSoftMessageCache {
         }
     }
 
-    public MessageInStore4j get(byte[] msgId) {
+    public MessageInStore get(byte[] msgId) {
         lock.lock();
         try {
             return map.get(new BytesKey(msgId));
