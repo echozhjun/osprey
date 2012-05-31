@@ -8,6 +8,8 @@
  */
 package com.juhuasuan.osprey;
 
+import org.apache.log4j.BasicConfigurator;
+
 
 /**
  * @author juxin.zj E-mail:juxin.zj@taobao.com
@@ -17,7 +19,7 @@ package com.juhuasuan.osprey;
 public class OspreyManagerTest {
 
     public static void main(String[] args) {
-//        BasicConfigurator.configure();
+        BasicConfigurator.configure();
         OspreyManager ospreyManager = new OspreyManager("osprey-test");
         ospreyManager.registerProcessor(new TestProcessor());
         ospreyManager.init();
@@ -44,6 +46,8 @@ public class OspreyManagerTest {
             System.out.println("Handled event" + event);
             Result result = new Result();
             result.setSuccess(false);
+            result.setErrorMessage("test error message");
+            result.setRuntimeException(new NullPointerException());
             return result;
         }
 
